@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ОБЖИТО — калькулятор стоимости ремонта</title>
+  <style>
+    /* Цвета страницы: меняются только здесь */
+    :root {
+      --navy-deep: #182A3F; /* фон страницы и текст на светлых плитках */
+      --navy: #243A53;      /* шапка, подвал, тёмная вставка результата, цифры на карточках */
+      --light: #F1E8DC;     /* светлый текст на тёмном */
+      --paper: #FDF9F2;     /* поля ввода и выпадающие списки */
+      --edge: #CFC2AE;      /* нижняя кромка плитки (толщина) */
+      --terra: #F06A4D;     /* терракота: линии, значки и кнопка */
+      --sage: #85877D;      /* шалфей: круглые значки */
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    /* Страница как колонка на всю высоту окна: подвал прижат к низу */
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      min-height: 100dvh;
+      margin: 0;
+      font-family: "IBM Plex Sans", system-ui, "Segoe UI", Arial, sans-serif;
+      font-size: 18px;
+      line-height: 1.5;
+      color: var(--light);
+      background: var(--navy-deep);
+    }
+    /* Основная часть растягивается и отодвигает подвал вниз */
+    main {
+      position: relative;
+      flex: 1 0 auto;
+    }
+
+    /* Общая ширина содержимого и боковые поля */
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    /* ----- Блок 1: заглавный ----- */
+    /* --city-h: высота рисунка города. Внизу шапки оставлено место под рисунок,
+       поэтому название и подзаголовок рисунок не перекрывает.
+       Небо (рассвет): вверху спокойный тёмно-синий под текстом,
+       книзу дымчатый голубовато-бежевый, тёплый бежевый и нежно-персиковый у горизонта */
+    .hero {
+      --city-h: 200px;
+      position: relative;
+      overflow: hidden;
+      padding: 72px 0 calc(var(--city-h) + 24px);
+      color: var(--light);
+      background: linear-gradient(
+        to top,
+        #F8D9BF 0,
+        #F6E3CC calc(var(--city-h) * 0.28),
+        #E9D5BE calc(var(--city-h) * 0.48),
+        #BFC4C2 calc(var(--city-h) * 0.66),
+        #7C8E9B calc(var(--city-h) * 0.82),
+        var(--navy) calc(var(--city-h) + 16px)
+      );
+      border-bottom: 6px solid var(--terra);
+    }
+    .hero .wrap {
+      position: relative;
+      z-index: 1;
+    }
+    .hero h1 {
+      margin: 0;
+      font-size: 56px;
+      line-height: 1.1;
+      letter-spacing: 0.08em;
+    }
+    /* Тонкая терракотовая линия между названием и подзаголовком */
+    .hero-line {
+      width: 64px;
+      height: 3px;
+      margin: 18px 0;
+      background: var(--terra);
+    }
+    .hero p {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    /* Рисунок города: внизу шапки на всю ширину */
+    .skyline {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      display: block;
+      width: 100%;
+      height: var(--city-h);
+      pointer-events: none;
+    }
+
+    /* ----- Общие заголовки секций (светлые на тёмном фоне страницы) ----- */
+    /* Содержимое лежит выше боковых рисунков (у них z-index: 0) */
+    section {
+      position: relative;
+      z-index: 1;
+      padding: 40px 0 8px;
+    }
+    /* Оба заголовка секций («Три комплекта» и «Рассчитайте стоимость») одного размера */
+    h2 {
+      margin: 0 0 24px;
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--light);
+    }
+
+    /* ----- Светлые объёмные плитки: карточки комплектов и блок калькулятора ----- */
+    /* Карточка: толстая плитка над фоном (градиент, блик сверху, кромка 8 px, глубокая тень) */
+    .card {
+      color: var(--navy-deep);
+      background: linear-gradient(160deg, #FBF4E8 0%, #EBDFCB 100%);
+      border-radius: 20px;
+      box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.8),
+        0 8px 0 #C4B49A,
+        0 24px 36px rgba(0, 0, 0, 0.45);
+    }
+    /* Блок калькулятора: однотонный фон, чёткие края, кромка 6 px */
+    .calc-box {
+      color: var(--navy-deep);
+      background: var(--light);
+      border-radius: 20px;
+      box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.8),
+        0 6px 0 var(--edge),
+        0 24px 48px rgba(0, 0, 0, 0.45);
+    }
+
+    /* ----- Блок 2: три карточки комплектов ----- */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    .card {
+      position: relative;
+      isolation: isolate;
+      min-width: 0;
+      padding: 24px;
+      transition: transform 0.25s ease, box-shadow 0.15s ease;
+    }
+    /* Более глубокая тень при наведении: включаем прозрачностью, чтобы анимировать только opacity */
+    .card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      border-radius: 20px;
+      box-shadow: 0 8px 0 #C4B49A, 0 34px 54px rgba(0, 0, 0, 0.55);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .card-top {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .card .icon {
+      display: block;
+      width: 64px;
+      height: 64px;
+      flex: none;
+      transition: transform 0.25s ease;
+    }
+    .card .num {
+      font-size: 48px;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--navy);
+    }
+    .card h3 {
+      margin: 16px 0 8px;
+      font-size: 22px;
+      line-height: 1.25;
+    }
+    .card p {
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+
+    /* ----- Блок 3: калькулятор ----- */
+    .calc-box {
+      padding: 24px;
+      margin-bottom: 56px;
+    }
+
+    /* Схема из четырёх шагов (только украшение): тёмная полоса вверху плитки на всю её ширину.
+       Отрицательные отступы компенсируют внутренний отступ плитки, скругление только сверху */
+    .steps {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      min-height: 110px;
+      margin: -24px -24px 24px;
+      padding: 13px 24px;
+      background: var(--navy);
+      border-radius: 20px 20px 0 0;
+    }
+    .step {
+      display: flex;
+      flex: 1 1 0;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.25;
+      text-align: center;
+      color: var(--light);
+    }
+    .step-num {
+      color: var(--light);
+    }
+    .badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.35), 0 3px 0 rgba(24, 42, 63, 0.25);
+    }
+    .badge-terra {
+      background: var(--terra);
+    }
+    .badge-sage {
+      background: var(--sage);
+    }
+    .badge svg {
+      width: 28px;
+      height: 28px;
+      fill: none;
+      stroke: var(--navy-deep);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .step-arrow {
+      flex: none;
+      width: 24px;
+      height: 24px;
+      margin-top: 16px;
+      fill: none;
+      stroke: var(--light);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .field {
+      margin-bottom: 16px;
+    }
+    .field label,
+    .field-title {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--navy-deep);
+    }
+    /* Подсказка под подписью поля: приглушённый тёмно-синий, контраст около 6:1 на светлой плитке */
+    .hint {
+      margin: 0 0 6px;
+      font-size: 16px;
+      color: #3E5570;
+    }
+    /* Поля и списки: чёткая тёмная рамка, без внутренней тени, высота 52 px */
+    select,
+    input[type="text"] {
+      width: 100%;
+      height: 52px;
+      padding: 8px 12px;
+      font: inherit;
+      font-size: 19px;
+      color: var(--navy-deep);
+      background: var(--paper);
+      border: 2px solid var(--navy);
+      border-radius: 10px;
+      box-shadow: none;
+    }
+    /* Пункты открытого списка тоже светлые */
+    option {
+      font-size: 19px;
+      color: var(--navy-deep);
+      background: var(--paper);
+    }
+    /* Строки с галочками: крупная область нажатия.
+       Селектор .field label.check сильнее, чем .field label выше,
+       поэтому подпись остаётся обычной и стоит в одну строку с квадратиком */
+    .field label.check {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 44px;
+      margin: 0;
+      font-size: 19px;
+      font-weight: 400;
+    }
+    .check input {
+      width: 24px;
+      height: 24px;
+      flex: none;
+      accent-color: var(--navy);
+    }
+
+    /* Кнопки: жирный текст 20 px, мягкий объём */
+    button {
+      min-height: 52px;
+      padding: 10px 28px;
+      font: inherit;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--navy-deep);
+      border: 0;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+    /* Обе кнопки стоят друг под другом, каждая по своей ширине.
+       Промежуток между ними даёт margin-top у #copy (16 px, всегда) */
+    #calc,
+    #copy {
+      display: block;
+    }
+    /* «Рассчитать»: терракота с лёгким градиентом, нижняя кромка темнее */
+    #calc {
+      background: linear-gradient(180deg, #F5805F 0%, #F06A4D 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        0 4px 0 #C4502F,
+        0 10px 16px rgba(24, 42, 63, 0.3);
+    }
+    /* «Скопировать расчёт»: светлая объёмная кнопка с тёмным текстом */
+    #copy {
+      margin-top: 16px;
+      background: linear-gradient(180deg, #F7EFE3 0%, #E8DDCB 100%);
+      border: 1px solid rgba(36, 58, 83, 0.25);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.8),
+        0 4px 0 var(--edge),
+        0 10px 16px rgba(24, 42, 63, 0.2);
+    }
+    /* При нажатии кнопка вдавливается: сдвиг вниз и короткая кромка */
+    button:active {
+      transform: translateY(2px);
+    }
+    #calc:active {
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 2px 0 #C4502F, 0 4px 8px rgba(24, 42, 63, 0.3);
+    }
+    #copy:active {
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 2px 0 var(--edge), 0 4px 8px rgba(24, 42, 63, 0.2);
+    }
+    /* Фокус с клавиатуры: у полей рамка терракотовая, у всех контур тёмно-синий */
+    button:focus-visible,
+    select:focus-visible,
+    input:focus-visible {
+      outline: 3px solid var(--navy);
+      outline-offset: 3px;
+    }
+    select:focus-visible,
+    input[type="text"]:focus-visible {
+      border-color: var(--terra);
+    }
+
+    /* Результат: строки скрипт заполняет сам, пустые абзацы не занимают места.
+       Пока в результате нет текста, у блока нет ни фона, ни линии, ни отступов */
+    #result {
+      margin: 0;
+      padding: 0;
+    }
+    /* Тёмная вставка внутри светлой плитки: появляется, только если хоть в одной строке есть текст */
+    #result:has(p:not(:empty)) {
+      margin: 24px 0 16px;
+      padding: 16px;
+      color: var(--light);
+      background: var(--navy);
+      border-left: 4px solid var(--terra);
+      border-radius: 8px;
+    }
+    #result p {
+      margin: 4px 0;
+      font-size: 19px;
+      overflow-wrap: anywhere;
+    }
+    #result p:empty,
+    #copyStatus:empty {
+      display: none;
+    }
+    #resMessage {
+      font-weight: 700;
+    }
+    /* Селектор с #result, чтобы 28 px итога не перебивались общим правилом строк (19 px) */
+    #result #resTotal {
+      margin-top: 12px;
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--light);
+    }
+    /* Подсказка у кнопки копирования: тёмная на светлой плитке */
+    #copyStatus {
+      margin: 16px 0 0;
+      color: var(--navy-deep);
+    }
+
+    /* ----- Блок 4: подвал ----- */
+    footer {
+      background: var(--navy);
+      color: var(--light);
+      padding: 28px 0;
+      border-top: 6px solid var(--terra);
+    }
+    footer p {
+      margin: 0 0 4px;
+    }
+    .brand {
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+
+    /* ----- Боковые рисунки: только на широких экранах ----- */
+    .side-art {
+      display: none;
+    }
+
+    /* ----- Анимации: только CSS, только transform и opacity ----- */
+    /* Плавное появление снизу вверх; после конца анимации действуют обычные стили,
+       поэтому наведение (transform) продолжает работать */
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: none; }
+    }
+    .card,
+    .calc-box {
+      animation: rise 0.6s ease backwards;
+    }
+    .card:nth-child(1) { animation-delay: 0.05s; }
+    .card:nth-child(2) { animation-delay: 0.15s; }
+    .card:nth-child(3) { animation-delay: 0.25s; }
+    .calc-box { animation-delay: 0.35s; }
+
+    /* Там, где браузер умеет привязывать анимацию к прокрутке, появление идёт по мере захода в видимую область.
+       Режим заполнения backwards (а не both): после окончания анимации действуют обычные стили,
+       поэтому элемент остаётся видимым, а наведение и нажатие продолжают работать.
+       Если анимация не сработала, у элемента обычные стили, то есть он виден.
+       Браузеры без поддержки остаются на прежнем появлении при загрузке (правила выше) */
+    @supports (animation-timeline: view()) {
+      .cards .card,
+      .calc-box {
+        animation: rise linear backwards;
+        animation-duration: auto;
+        animation-delay: 0s;
+        animation-timeline: view();
+        animation-range: entry 0% entry 50%;
+      }
+      /* Блок калькулятора высокий: у конца страницы в видимую область может попасть меньше половины,
+         поэтому ему хватает первой четверти входа */
+      .calc-box {
+        animation-range: entry 0% entry 25%;
+      }
+      /* Карточки в один ряд (шире 700 px) появляются по очереди; на телефоне каждая сама, когда до неё доскроллили */
+      @media (min-width: 701px) {
+        .cards .card:nth-child(2) {
+          animation-range: entry 10% entry 60%;
+        }
+        .cards .card:nth-child(3) {
+          animation-range: entry 20% entry 70%;
+        }
+      }
+    }
+
+    /* Наведение на карточку (только там, где есть мышь) */
+    @media (hover: hover) {
+      .card:hover {
+        transform: translateY(-4px);
+      }
+      .card:hover::after {
+        opacity: 1;
+      }
+      .card:hover .icon {
+        transform: scale(1.06);
+      }
+      button:hover {
+        transform: translateY(-2px);
+      }
+      button:active {
+        transform: translateY(2px);
+      }
+    }
+
+    /* Отклик на нажатие карточки (мышь и касание): слегка вдавливается, тень чуть меньше.
+       Правило стоит после блока наведения, поэтому при нажатии побеждает подъём */
+    .card:active {
+      transform: translateY(2px) scale(0.99);
+      box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.8),
+        0 6px 0 #C4B49A,
+        0 14px 24px rgba(0, 0, 0, 0.4);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .card:active::after {
+      opacity: 0;
+    }
+
+    /* Очень медленная пульсация сияния вокруг солнца (период 6 с) */
+    @keyframes glowPulse {
+      0%, 100% { opacity: 0.7; transform: scale(1); }
+      50%      { opacity: 1; transform: scale(1.08); }
+    }
+    .sun-glow {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: glowPulse 6s ease-in-out infinite;
+    }
+
+    /* Мерцание нескольких окон и огней на мосту (период 3–5 с, у каждого своя задержка) */
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.3; }
+      50%      { opacity: 1; }
+    }
+    .tw {
+      opacity: 0.85;
+    }
+    .tw-a { animation: twinkle 3s ease-in-out infinite; }
+    .tw-b { animation: twinkle 4s ease-in-out infinite; }
+    .tw-c { animation: twinkle 5s ease-in-out infinite; }
+
+    /* Пользователям, которые просят меньше движения: все анимации и переходы выключены,
+       в том числе появление по прокрутке; элементы сразу видны и полностью непрозрачны */
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation: none !important;
+        animation-timeline: auto !important;
+        transition: none !important;
+      }
+      .card,
+      .calc-box {
+        opacity: 1 !important;
+      }
+    }
+
+    /* ----- Широкие экраны: по бокам от содержимого линейные рисунки на всю высоту страницы ----- */
+    @media (min-width: 1281px) {
+      /* Контейнер растянут на всю высоту main, лежит ниже содержимого, мышь не ловит */
+      .side-art {
+        display: block;
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 0;
+        overflow-x: clip;
+        pointer-events: none;
+      }
+      /* Колонка: рисунки друг под другом с равными промежутками.
+         Ширина = поле слева (или справа) от содержимого за вычетом запаса; не больше 200 px */
+      .side-col {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        width: min(200px, calc((100% - 1100px) / 2 - 28px));
+        padding: 96px 0 72px;
+      }
+      .side-col-left {
+        left: 12px;
+      }
+      .side-col-right {
+        right: 12px;
+      }
+      /* Линии толщиной 2 px (не зависят от масштаба рисунка), светлые, часть тёплым цветом */
+      .side-col svg {
+        display: block;
+        flex: none;
+        width: 100%;
+        height: auto;
+        fill: none;
+        stroke: var(--light);
+        stroke-opacity: 0.3;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .side-col svg * {
+        vector-effect: non-scaling-stroke;
+      }
+      .side-col svg.warm {
+        stroke: #F6C9A8;
+        stroke-opacity: 0.4;
+      }
+    }
+
+    /* ----- Телефон: карточки друг под другом, кнопки на всю ширину ----- */
+    @media (max-width: 700px) {
+      .hero {
+        --city-h: 120px;
+        padding: 48px 0 calc(var(--city-h) + 24px);
+      }
+      .hero h1 {
+        font-size: 40px;
+      }
+      .hero p {
+        font-size: 22px;
+      }
+      h2 {
+        font-size: 28px;
+      }
+      .cards {
+        grid-template-columns: 1fr;
+      }
+      /* Отступ плитки 20 px со всех сторон; углы остаются обычными (20 px), как задано у самой плитки */
+      .calc-box {
+        padding: 20px;
+      }
+      /* Схема из четырёх шагов вместе с тёмной полосой на телефоне скрыта: форма начинается сразу под заголовком */
+      .steps {
+        display: none;
+      }
+      button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Блок 1: заглавный -->
+  <header class="hero">
+    <!-- Декоративный рисунок: рассвет над городом, три слоя зданий, вантовый мост и вода (небо задано в CSS у .hero) -->
+    <svg class="skyline" aria-hidden="true" focusable="false" viewBox="0 0 1920 200" preserveAspectRatio="xMidYMax slice">
+      <defs>
+        <radialGradient id="skSunGlow"><stop offset="0" stop-color="#FFF1D6" stop-opacity="0.9"/><stop offset="0.35" stop-color="#FCE2B8" stop-opacity="0.45"/><stop offset="1" stop-color="#F8D9BF" stop-opacity="0"/></radialGradient>
+        <radialGradient id="skSunDisc"><stop offset="0" stop-color="#FFFBEF"/><stop offset="1" stop-color="#F9DFA6"/></radialGradient>
+        <linearGradient id="skWater" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F3CDAA"/><stop offset="0.5" stop-color="#8D93A0"/><stop offset="1" stop-color="#243A53"/></linearGradient>
+        <!-- Ряды окон: ячейка 8x10, часть окон тёплая -->
+        <pattern id="skWin" width="32" height="40" patternUnits="userSpaceOnUse"><rect x="2" y="3" width="3" height="4" fill="#F1E8DC" fill-opacity="0.55"/><rect x="10" y="3" width="3" height="4" fill="#F1E8DC" fill-opacity="0.55"/><rect x="18" y="3" width="3" height="4" fill="#F1E8DC" fill-opacity="0.55"/><rect x="26" y="3" width="3" height="4" fill="#F1E8DC" fill-opacity="0.55"/><rect x="2" y="13" width="3" height="4" fill="#F1E8DC" fill-opacity="0.55"/><rect x="10" y="13" width="3" height="4" fill="#FFD58A"/><rect x="18" y="13" width="3" height="4" fill="#F1E8DC" fill-opacity="0.55"/><rect x="26" y="13" width="3" height="4" fill="#F1E8DC" fill-opacity="0.55"/><rect x="2" y="23" width="3" height="4" fill="#F1E8DC" fill-opacity="0.55"/><rect x="10" y="23" width="3" height="4" fill="#F1E8DC" fill-opacity="0.55"/><rect x="18" y="23" width="3" height="4" fill="#F1E8DC" fill-opacity="0.55"/><rect x="26" y="23" width="3" height="4" fill="#FFD58A"/><rect x="2" y="33" width="3" height="4" fill="#F1E8DC" fill-opacity="0.55"/><rect x="10" y="33" width="3" height="4" fill="#F1E8DC" fill-opacity="0.55"/><rect x="18" y="33" width="3" height="4" fill="#F1E8DC" fill-opacity="0.55"/><rect x="26" y="33" width="3" height="4" fill="#F1E8DC" fill-opacity="0.55"/></pattern>
+        <filter id="skSoft" filterUnits="userSpaceOnUse" x="0" y="160" width="1920" height="40"><feGaussianBlur stdDeviation="1.4"/></filter>
+        <path id="skNear" d="M0 168V136H56V168Z M8 168V119H48V168Z M16 168V107H40V168Z M56 168V139H88V168Z M71 139V113H73V139Z M88 168V101H128V168Z M136 168V143L176 132V168Z M176 168V111H232V168Z M199 111L204 85L209 111Z M240 168V123H272V168Z M272 168V122H296V168Z M279 122L284 95L289 122Z M296 168V146H344V168Z M304 168V131H336V168Z M312 168V122H328V168Z M344 168V130H384V168Z M384 168V128H416V168Z M424 168V116L472 104V168Z M480 168V139H504V168Z M504 168V102H528V168Z M515 102V76H517V102Z M536 168V122H592V168Z M592 168V136H624V168Z M600 168V125H616V168Z M624 168V151H648V168Z M635 151V126H637V151Z M656 168V145L688 164V168Z M688 168V150L720 163V168Z M720 168V165L776 150V168Z M776 168V145H808V168Z M784 168V127H800V168Z M816 168V161L840 151V168Z M840 168V135H872V168Z M848 168V119H864V168Z M872 168V153H928V168Z M895 153L900 124L905 153Z M936 168V141H984V168Z M944 168V125H976V168Z M952 168V116H968V168Z M984 168V153H1024V168Z M992 168V140H1016V168Z M1024 168V134H1048V168Z M1035 134V118H1037V134Z M1048 168V139H1088V168Z M1067 139V121H1069V139Z M1088 168V143L1120 163V168Z M1120 168V146H1144V168Z M1131 146V132H1133V146Z M1144 168V152H1184V168Z M1184 168V141H1240V168Z M1211 141V124H1213V141Z M1240 168V148H1272V168Z M1280 168V144H1304V168Z M1304 168V101H1336V168Z M1312 168V91H1328V168Z M1336 168V105H1368V168Z M1347 105L1352 78L1357 105Z M1368 168V111H1424V168Z M1424 168V136H1456V168Z M1435 136L1440 111L1445 136Z M1456 168V131L1512 147V168Z M1512 168V98H1536V168Z M1519 98L1524 74L1529 98Z M1536 168V101H1584V168Z M1584 168V142H1632V168Z M1632 168V86H1688V168Z M1659 86V63H1661V86Z M1688 168V120H1744V168Z M1696 168V102H1736V168Z M1704 168V90H1728V168Z M1744 168V117L1768 137V168Z M1768 168V105L1824 121V168Z M1824 168V123L1880 110V168Z M1880 168V115H1912V168Z"/>
+      </defs>
+
+      <!-- Солнце: мягкое сияние (пульсирует) и диск -->
+      <circle class="sun-glow" cx="1130" cy="148" r="130" fill="url(#skSunGlow)"/>
+      <circle cx="1130" cy="148" r="20" fill="url(#skSunDisc)"/>
+
+      <!-- Дальний слой: светлый, дымчатый -->
+      <path d="M0 168V109L64 97V168Z M64 168V68H136V168Z M72 168V57H128V168Z M80 168V49H120V168Z M144 168V101H216V168Z M224 168V125L280 109V168Z M280 168V113H320V168Z M320 168V114L392 96V168Z M408 168V105L472 92V168Z M472 168V88H504V168Z M480 168V76H496V168Z M520 168V79H560V168Z M576 168V80H640V168Z M607 80V65H609V80Z M640 168V112H712V168Z M712 168V107H752V168Z M720 168V96H744V168Z M752 168V115H824V168Z M783 115L788 90L793 115Z M824 168V93H856V168Z M872 168V92H928V168Z M895 92L900 58L905 92Z M928 168V118H968V168Z M976 168V117H1008V168Z M1016 168V103H1056V168Z M1064 168V107L1128 119V168Z M1136 168V90H1176V168Z M1151 90L1156 64L1161 90Z M1184 168V114H1232V168Z M1207 114V93H1209V114Z M1232 168V84L1264 102V168Z M1280 168V109H1336V168Z M1288 168V93H1328V168Z M1296 168V82H1320V168Z M1336 168V94L1368 108V168Z M1376 168V67H1448V168Z M1384 168V54H1440V168Z M1392 168V42H1432V168Z M1448 168V69H1496V168Z M1456 168V56H1488V168Z M1464 168V43H1480V168Z M1496 168V79H1552V168Z M1552 168V113H1592V168Z M1600 168V81H1656V168Z M1627 81V59H1629V81Z M1664 168V64H1712V168Z M1728 168V114L1800 100V168Z M1808 168V111H1856V168Z M1864 168V86H1896V168Z M1872 168V76H1888V168Z M1904 168V90H1920V168Z" fill="#9FAAB2" fill-opacity="0.5"/>
+      <path d="M48 109h16V168h-16Z M120 68h16V168h-16Z M200 101h16V168h-16Z M264 125h16V168h-16Z M312 113h8V168h-8Z M376 114h16V168h-16Z M456 105h16V168h-16Z M496 88h8V168h-8Z M552 79h8V168h-8Z M624 80h16V168h-16Z M696 112h16V168h-16Z M744 107h8V168h-8Z M808 115h16V168h-16Z M848 93h8V168h-8Z M912 92h16V168h-16Z M960 118h8V168h-8Z M1000 117h8V168h-8Z M1048 103h8V168h-8Z M1112 119h16V168h-16Z M1136 90h8V168h-8Z M1184 114h16V168h-16Z M1232 102h8V168h-8Z M1280 109h16V168h-16Z M1336 108h8V168h-8Z M1376 67h16V168h-16Z M1448 69h16V168h-16Z M1496 79h16V168h-16Z M1552 113h8V168h-8Z M1600 81h16V168h-16Z M1664 64h16V168h-16Z M1728 114h16V168h-16Z M1808 111h16V168h-16Z M1864 86h8V168h-8Z M1904 90h8V168h-8Z" fill="#FFF3DC" fill-opacity="0.22"/>
+      <!-- Средний слой -->
+      <path d="M8 168V118H32V168Z M15 118L20 93L25 118Z M32 168V80L56 91V168Z M64 168V74H120V168Z M120 168V76H176V168Z M176 168V98H200V168Z M183 98L188 70L193 98Z M200 168V105H256V168Z M227 105V86H229V105Z M264 168V113H328V168Z M336 168V85H384V168Z M355 85L360 53L365 85Z M384 168V102L416 114V168Z M424 168V75H472V168Z M432 168V58H464V168Z M440 168V48H456V168Z M472 168V138L504 128V168Z M504 168V126H544V168Z M544 168V96H568V168Z M555 96V77H557V96Z M568 168V82L616 95V168Z M616 168V112H680V168Z M680 168V125H720V168Z M695 125L700 101L705 125Z M728 168V119L776 109V168Z M776 168V121H824V168Z M799 121V106H801V121Z M824 168V127H888V168Z M851 127L856 98L861 127Z M888 168V130L952 118V168Z M952 168V135L1016 147V168Z M1016 168V118H1056V168Z M1064 168V122H1088V168Z M1075 122V98H1077V122Z M1088 168V122H1144V168Z M1096 168V110H1136V168Z M1104 168V97H1128V168Z M1144 168V111H1184V168Z M1159 111L1164 87L1169 111Z M1184 168V119H1208V168Z M1208 168V113H1240V168Z M1240 168V123H1304V168Z M1304 168V102H1328V168Z M1315 102V81H1317V102Z M1328 168V79H1352V168Z M1352 168V127H1384V168Z M1384 168V77H1440V168Z M1392 168V67H1432V168Z M1400 168V54H1424V168Z M1440 168V79L1496 90V168Z M1496 168V113H1560V168Z M1523 113L1528 84L1533 113Z M1560 168V108L1584 119V168Z M1584 168V104L1632 117V168Z M1632 168V114L1664 132V168Z M1664 168V117L1688 133V168Z M1688 168V110H1712V168Z M1720 168V96H1752V168Z M1735 96V78H1737V96Z M1752 168V83H1776V168Z M1759 83L1764 57L1769 83Z M1776 168V125H1832V168Z M1799 125L1804 94L1809 125Z M1832 168V120L1864 132V168Z M1872 168V94H1920V168Z" fill="#55697D" fill-opacity="0.92"/>
+      <path d="M24 118h8V168h-8Z M48 91h8V168h-8Z M104 74h16V168h-16Z M160 76h16V168h-16Z M192 98h8V168h-8Z M240 105h16V168h-16Z M312 113h16V168h-16Z M368 85h16V168h-16Z M408 114h8V168h-8Z M456 75h16V168h-16Z M496 138h8V168h-8Z M536 126h8V168h-8Z M560 96h8V168h-8Z M600 95h16V168h-16Z M664 112h16V168h-16Z M712 125h8V168h-8Z M760 119h16V168h-16Z M808 121h16V168h-16Z M872 127h16V168h-16Z M936 130h16V168h-16Z M1000 147h16V168h-16Z M1048 118h8V168h-8Z M1080 122h8V168h-8Z M1128 122h16V168h-16Z M1144 111h8V168h-8Z M1184 119h8V168h-8Z M1208 113h8V168h-8Z M1240 123h16V168h-16Z M1304 102h8V168h-8Z M1328 79h8V168h-8Z M1352 127h8V168h-8Z M1384 77h16V168h-16Z M1440 90h16V168h-16Z M1496 113h16V168h-16Z M1560 119h8V168h-8Z M1584 117h16V168h-16Z M1632 132h8V168h-8Z M1664 133h8V168h-8Z M1688 110h8V168h-8Z M1720 96h8V168h-8Z M1752 83h8V168h-8Z M1776 125h16V168h-16Z M1832 132h8V168h-8Z M1872 94h16V168h-16Z" fill="#FFF3DC" fill-opacity="0.2"/>
+      <path d="M8 130h24v30h-24Z M32 100h24v60h-24Z M64 90h56v70h-56Z M120 90h56v70h-56Z M176 110h24v50h-24Z M200 120h56v40h-56Z M264 130h64v30h-64Z M336 100h48v60h-48Z M384 130h32v30h-32Z M424 90h48v70h-48Z M472 150h32v10h-32Z M504 140h40v20h-40Z M544 110h24v50h-24Z M568 110h48v50h-48Z M616 120h64v40h-64Z M680 140h40v20h-40Z M728 130h48v30h-48Z M776 130h48v30h-48Z M824 140h64v20h-64Z M888 140h64v20h-64Z M1016 130h40v30h-40Z M1064 130h24v30h-24Z M1088 130h56v30h-56Z M1144 120h40v40h-40Z M1184 130h24v30h-24Z M1208 130h32v30h-32Z M1240 140h64v20h-64Z M1304 110h24v50h-24Z M1328 90h24v70h-24Z M1352 140h32v20h-32Z M1384 90h56v70h-56Z M1440 100h56v60h-56Z M1496 130h64v30h-64Z M1560 130h24v30h-24Z M1584 130h48v30h-48Z M1632 140h32v20h-32Z M1664 150h24v10h-24Z M1688 120h24v40h-24Z M1720 110h32v50h-32Z M1752 100h24v60h-24Z M1776 140h56v20h-56Z M1832 140h32v20h-32Z M1872 110h48v50h-48Z" fill="url(#skWin)" opacity="0.6"/>
+      <!-- Ближний слой: самый тёмный -->
+      <use href="#skNear" fill="#182A3F"/>
+      <path d="M40 136h16V168h-16Z M80 139h8V168h-8Z M120 101h8V168h-8Z M168 143h8V168h-8Z M216 111h16V168h-16Z M264 123h8V168h-8Z M288 122h8V168h-8Z M328 146h16V168h-16Z M376 130h8V168h-8Z M408 128h8V168h-8Z M456 116h16V168h-16Z M496 139h8V168h-8Z M520 102h8V168h-8Z M576 122h16V168h-16Z M616 136h8V168h-8Z M640 151h8V168h-8Z M680 164h8V168h-8Z M712 163h8V168h-8Z M760 165h16V168h-16Z M800 145h8V168h-8Z M832 161h8V168h-8Z M864 135h8V168h-8Z M912 153h16V168h-16Z M968 141h16V168h-16Z M1016 153h8V168h-8Z M1040 134h8V168h-8Z M1080 139h8V168h-8Z M1112 163h8V168h-8Z M1120 146h8V168h-8Z M1144 152h8V168h-8Z M1184 141h16V168h-16Z M1240 148h8V168h-8Z M1280 144h8V168h-8Z M1304 101h8V168h-8Z M1336 105h8V168h-8Z M1368 111h16V168h-16Z M1424 136h8V168h-8Z M1456 147h16V168h-16Z M1512 98h8V168h-8Z M1536 101h16V168h-16Z M1584 142h16V168h-16Z M1632 86h16V168h-16Z M1688 120h16V168h-16Z M1744 137h8V168h-8Z M1768 121h16V168h-16Z M1824 123h16V168h-16Z M1880 115h8V168h-8Z" fill="#FFF3DC" fill-opacity="0.28"/>
+      <path d="M0 150h56v10h-56Z M56 150h32v10h-32Z M88 110h40v50h-40Z M176 120h56v40h-56Z M240 140h32v20h-32Z M272 130h24v30h-24Z M344 140h40v20h-40Z M384 140h32v20h-32Z M424 130h48v30h-48Z M480 150h24v10h-24Z M504 110h24v50h-24Z M536 130h56v30h-56Z M592 150h32v10h-32Z M840 150h32v10h-32Z M936 150h48v10h-48Z M1024 150h24v10h-24Z M1048 150h40v10h-40Z M1184 150h56v10h-56Z M1304 110h32v50h-32Z M1336 120h32v40h-32Z M1368 120h56v40h-56Z M1424 150h32v10h-32Z M1512 110h24v50h-24Z M1536 110h48v50h-48Z M1584 150h48v10h-48Z M1632 100h56v60h-56Z M1688 130h56v30h-56Z M1744 150h24v10h-24Z M1768 130h56v30h-56Z M1824 140h56v20h-56Z M1880 130h32v30h-32Z" fill="url(#skWin)" opacity="0.9"/>
+
+      <!-- Вантовый мост: опоры, полотно, пилон и тонкие ванты -->
+      <g fill="#182A3F">
+        <rect x="578" y="151" width="4" height="19"/>
+        <rect x="768" y="151" width="4" height="19"/>
+        <rect x="1148" y="151" width="4" height="19"/>
+        <rect x="1338" y="151" width="4" height="19"/>
+        <rect x="380" y="148" width="1160" height="3"/>
+        <rect x="957" y="34" width="6" height="136"/>
+      </g>
+      <g fill="none" stroke="#182A3F" stroke-width="1.2">
+        <path d="M960 86L920 148M960 78L870 148M960 70L820 148M960 62L770 148M960 54L720 148M960 46L670 148M960 38L620 148M960 30L570 148"/>
+        <path d="M960 86L1000 148M960 78L1050 148M960 70L1100 148M960 62L1150 148M960 54L1200 148M960 46L1250 148M960 38L1300 148M960 30L1350 148"/>
+      </g>
+
+      <!-- Вода: градиент от персикового к тёмно-синему, отражения и рябь -->
+      <rect x="0" y="168" width="1920" height="32" fill="url(#skWater)"/>
+      <g filter="url(#skSoft)">
+        <use href="#skNear" transform="translate(0 336) scale(1 -1)" fill="#182A3F" fill-opacity="0.4"/>
+        <rect x="958" y="170" width="4" height="30" fill="#182A3F" fill-opacity="0.4"/>
+        <rect x="1113" y="170" width="34" height="2" fill="#FFF1D2" fill-opacity="0.55"/>
+        <rect x="1116" y="175" width="28" height="2" fill="#FFF1D2" fill-opacity="0.49"/>
+        <rect x="1119" y="180" width="22" height="2" fill="#FFF1D2" fill-opacity="0.43"/>
+        <rect x="1122" y="185" width="16" height="2" fill="#FFF1D2" fill-opacity="0.37"/>
+        <rect x="1124" y="190" width="12" height="2" fill="#FFF1D2" fill-opacity="0.31"/>
+        <rect x="1126" y="195" width="8" height="2" fill="#FFF1D2" fill-opacity="0.25"/>
+      </g>
+      <path d="M360 189h37 M755 171h65 M999 194h57 M1759 176h63 M279 197h54 M1153 190h58 M76 191h45 M1408 187h43 M1670 183h45 M1374 179h46 M1816 181h48 M297 184h30 M69 179h37 M1581 171h39 M320 196h55 M934 178h35 M7 177h66 M1135 193h55 M1853 186h48 M40 183h59 M1617 191h59 M1345 193h31 M733 188h52 M228 197h66 M686 175h49 M1784 196h66 M314 194h46 M309 183h47 M981 173h53 M495 193h30 M1431 182h26 M1030 179h33 M1455 175h30 M565 179h37 M374 185h22 M1053 179h25 M748 173h43 M1766 193h51 M952 179h55 M1306 196h60" fill="none" stroke="#F6E3CC" stroke-opacity="0.3" stroke-width="1"/>
+
+      <!-- Огоньки на мосту (неподвижные) -->
+      <g fill="#FFE2A8" fill-opacity="0.7">
+        <circle cx="640" cy="146" r="1.3"/>
+        <circle cx="780" cy="146" r="1.3"/>
+        <circle cx="900" cy="146" r="1.3"/>
+        <circle cx="1020" cy="146" r="1.3"/>
+        <circle cx="1180" cy="146" r="1.3"/>
+        <circle cx="1300" cy="146" r="1.3"/>
+      </g>
+      <!-- Мерцающие окна и огни на мосту: только эти элементы мерцают (CSS) -->
+      <rect class="tw tw-a" style="animation-delay:-0.4s" x="1362" y="133" width="3" height="4" fill="#FFD58A"/>
+      <rect class="tw tw-b" style="animation-delay:-1.3s" x="562" y="143" width="3" height="4" fill="#FFD58A"/>
+      <rect class="tw tw-c" style="animation-delay:-2.1s" x="1322" y="143" width="3" height="4" fill="#FFD58A"/>
+      <circle class="tw tw-a" style="animation-delay:-0.9s" cx="700" cy="145" r="1.7" fill="#FFE2A8"/>
+      <circle class="tw tw-b" style="animation-delay:-2.8s" cx="860" cy="145" r="1.7" fill="#FFE2A8"/>
+      <circle class="tw tw-c" style="animation-delay:-1.7s" cx="1060" cy="145" r="1.7" fill="#FFE2A8"/>
+      <circle class="tw tw-a" style="animation-delay:-3.4s" cx="1220" cy="145" r="1.7" fill="#FFE2A8"/>
+      <circle class="tw tw-b" style="animation-delay:-0.2s" cx="960" cy="31" r="2" fill="#FFE2A8"/>
+    </svg>
+
+    <div class="wrap">
+      <h1>ОБЖИТО</h1>
+      <div class="hero-line"></div>
+      <p>Калькулятор стоимости ремонта</p>
+    </div>
+  </header>
+
+  <main>
+    <!-- Боковые рисунки: на всю высоту страницы, только на экранах шире 1280 px. Без текста, не секция и не блок -->
+    <div class="side-art" aria-hidden="true">
+      <!-- Левая колонка: план, спальня, окно, розетка с выключателем, рулетка -->
+      <div class="side-col side-col-left">
+        <!-- План помещения с размерными линиями -->
+        <svg class="warm" aria-hidden="true" focusable="false" viewBox="0 0 200 170">
+          <path d="M30 30H170V130H30Z"/>
+          <path d="M100 30V80M30 80H64"/>
+          <path d="M64 80A36 36 0 0 1 100 44"/>
+          <path d="M112 100H156V122H112Z"/>
+          <path d="M30 14H170M30 8V20M170 8V20"/>
+          <path d="M12 30V130M6 30H18M6 130H18"/>
+          <path d="M30 150H170M30 144V156M170 144V156"/>
+        </svg>
+        <!-- План спальни с мебелью -->
+        <svg aria-hidden="true" focusable="false" viewBox="0 0 200 170">
+          <path d="M20 10H180V160H20Z"/>
+          <path d="M30 20H100V110H30Z"/>
+          <path d="M36 26H64V46H36ZM68 26H96V46H68Z"/>
+          <path d="M108 20H128V40H108Z"/>
+          <path d="M150 20H174V90H150Z"/>
+          <path d="M110 160V128"/>
+          <path d="M110 160A32 32 0 0 0 142 128"/>
+        </svg>
+        <!-- Окно с размерами -->
+        <svg class="warm" aria-hidden="true" focusable="false" viewBox="0 0 200 190">
+          <path d="M50 40H150V160H50Z"/>
+          <path d="M58 48H142V152H58Z"/>
+          <path d="M100 48V152M58 100H142"/>
+          <path d="M40 160H160V172H40Z"/>
+          <path d="M50 22H150M50 16V28M150 16V28"/>
+          <path d="M178 40V160M172 40H184M172 160H184"/>
+        </svg>
+        <!-- Розетка с выключателем -->
+        <svg aria-hidden="true" focusable="false" viewBox="0 0 200 120">
+          <path d="M20 20H80V100H20Z"/>
+          <path d="M40 40H60V80H40Z"/>
+          <path d="M40 60H60"/>
+          <path d="M110 20H180V100H110Z"/>
+          <circle cx="145" cy="60" r="26"/>
+          <circle cx="132" cy="60" r="4"/>
+          <circle cx="158" cy="60" r="4"/>
+        </svg>
+        <!-- Рулетка -->
+        <svg class="warm" aria-hidden="true" focusable="false" viewBox="0 0 200 140">
+          <path d="M40 30H120A20 20 0 0 1 140 50V90A20 20 0 0 1 120 110H40A20 20 0 0 1 20 90V50A20 20 0 0 1 40 30Z"/>
+          <circle cx="80" cy="70" r="22"/>
+          <path d="M140 85H190V105H140"/>
+          <path d="M150 105V98M160 105V93M170 105V98M180 105V93"/>
+        </svg>
+      </div>
+
+      <!-- Правая колонка: светильник, линейка, стремянка, дверь, малярный валик -->
+      <div class="side-col side-col-right">
+        <!-- Светильник на проводе -->
+        <svg class="warm" aria-hidden="true" focusable="false" viewBox="0 0 200 200">
+          <path d="M100 0V86"/>
+          <path d="M58 124C58 92 142 92 142 124Z"/>
+          <path d="M100 124V134"/>
+          <circle cx="100" cy="146" r="12"/>
+          <path d="M70 152L56 166M100 162V184M130 152L144 166"/>
+        </svg>
+        <!-- Линейка -->
+        <svg aria-hidden="true" focusable="false" viewBox="0 0 200 110">
+          <path d="M10 30H190V80H10Z"/>
+          <path d="M30 30V50M50 30V42M70 30V50M90 30V42M110 30V50M130 30V42M150 30V50M170 30V42"/>
+        </svg>
+        <!-- Стремянка -->
+        <svg class="warm" aria-hidden="true" focusable="false" viewBox="0 0 200 230">
+          <path d="M60 220L80 20M140 220L120 20"/>
+          <path d="M63 190H137M67 150H133M71 110H129M75 70H125"/>
+          <path d="M78 20H122V30H78Z"/>
+        </svg>
+        <!-- Дверь с ручкой -->
+        <svg aria-hidden="true" focusable="false" viewBox="0 0 200 240">
+          <path d="M50 10H150V230H50Z"/>
+          <path d="M64 26H136V100H64Z"/>
+          <path d="M64 116H136V214H64Z"/>
+          <circle cx="128" cy="108" r="5"/>
+          <path d="M128 108H108"/>
+        </svg>
+        <!-- Малярный валик -->
+        <svg aria-hidden="true" focusable="false" viewBox="0 0 200 200">
+          <path d="M40 30H150V70H40Z"/>
+          <path d="M60 30V70M80 30V70"/>
+          <path d="M150 50H170V90H100V120"/>
+          <path d="M92 120H108V190H92Z"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Блок 2: три комплекта (ровно три карточки) -->
+    <section>
+      <div class="wrap">
+        <h2>Три комплекта</h2>
+        <div class="cards">
+          <article class="card">
+            <div class="card-top">
+              <!-- Значок 1: дом с основанием на терракотовом круге -->
+              <svg class="icon" aria-hidden="true" focusable="false" viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="32" fill="#F06A4D"/>
+                <g fill="none" stroke="#182A3F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 33L32 22L45 33"/>
+                  <path d="M23 31V44H41V31"/>
+                  <path d="M29 44V37H35V44"/>
+                  <path d="M16 45H48"/>
+                </g>
+              </svg>
+              <span class="num">01</span>
+            </div>
+            <h3>Базовый минимум</h3>
+            <p>Продуманная основа будущего интерьера: необходимые отделочные работы, аккуратное исполнение и готовность пространства к новой жизни.</p>
+          </article>
+          <article class="card">
+            <div class="card-top">
+              <!-- Значок 2: план помещения с перегородками на круге цвета шалфея -->
+              <svg class="icon" aria-hidden="true" focusable="false" viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="32" fill="#85877D"/>
+                <g fill="none" stroke="#182A3F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 19H47V45H17Z"/>
+                  <path d="M31 19V33H17"/>
+                  <path d="M39 33H47"/>
+                  <path d="M39 33V45"/>
+                  <path d="M26 45V40"/>
+                </g>
+              </svg>
+              <span class="num">02</span>
+            </div>
+            <h3>Комплексный ремонт</h3>
+            <p>Полное преображение пространства — от первых подготовительных работ до финишной отделки. Целостный подход к каждому этапу, с возможностью включить материалы в смету.</p>
+          </article>
+          <article class="card">
+            <div class="card-top">
+              <!-- Значок 3: карандаш с линейкой, светлый рисунок на тёмно-синем круге -->
+              <svg class="icon" aria-hidden="true" focusable="false" viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="32" fill="#243A53"/>
+                <g fill="none" stroke="#F1E8DC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M39 15L46 22L28 40L20 42L22 34Z"/>
+                  <path d="M35 19L42 26"/>
+                  <path d="M16 46H48V51H16Z"/>
+                  <path d="M22 46V49M28 46V50M34 46V49M40 46V50"/>
+                </g>
+              </svg>
+              <span class="num">03</span>
+            </div>
+            <h3>Индивидуальный проект</h3>
+            <p>От смелой идеи до готового пространства. Воплотим задуманное, продумав каждую деталь и этап реализации.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Блок 3: калькулятор (идентификаторы полей используются скриптом, не менять) -->
+    <section>
+      <div class="wrap">
+        <h2>Рассчитайте стоимость</h2>
+        <div class="calc-box">
+          <!-- Схема из четырёх шагов: только украшение, полей и кнопок в ней нет -->
+          <div class="steps" aria-hidden="true">
+            <div class="step">
+              <span class="badge badge-terra">
+                <svg viewBox="0 0 28 28" focusable="false"><path d="M6 5H22V19H6Z"/><path d="M6 24H22M6 22V26M22 22V26"/></svg>
+              </span>
+              <span><span class="step-num">01</span> Площадь</span>
+            </div>
+            <svg class="step-arrow" viewBox="0 0 24 24" focusable="false"><path d="M3 12H20M14 6L20 12L14 18"/></svg>
+            <div class="step">
+              <span class="badge badge-sage">
+                <svg viewBox="0 0 28 28" focusable="false"><path d="M14 4L24 9V19L14 24L4 19V9Z"/><path d="M4 9L14 14L24 9M14 14V24"/></svg>
+              </span>
+              <span><span class="step-num">02</span> Комплект</span>
+            </div>
+            <svg class="step-arrow" viewBox="0 0 24 24" focusable="false"><path d="M3 12H20M14 6L20 12L14 18"/></svg>
+            <div class="step">
+              <span class="badge badge-terra">
+                <svg viewBox="0 0 28 28" focusable="false"><circle cx="14" cy="14" r="10"/><path d="M14 9V19M9 14H19"/></svg>
+              </span>
+              <span><span class="step-num">03</span> Доп. работы</span>
+            </div>
+            <svg class="step-arrow" viewBox="0 0 24 24" focusable="false"><path d="M3 12H20M14 6L20 12L14 18"/></svg>
+            <div class="step">
+              <span class="badge badge-sage">
+                <svg viewBox="0 0 28 28" focusable="false"><path d="M7 4H21V24L18 22L14 24L10 22L7 24Z"/><path d="M10 10H18M10 14H18"/></svg>
+              </span>
+              <span><span class="step-num">04</span> Итог</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="type">Тип помещения</label>
+            <select id="type">
+              <option value="flat">Квартира</option>
+              <option value="commercial">Коммерческое</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="area">Площадь, м²</label>
+            <p class="hint" id="areaHint">Допустимо: 10–150 м²</p>
+            <input type="text" id="area" inputmode="decimal" autocomplete="off" aria-describedby="areaHint">
+          </div>
+
+          <div class="field">
+            <label for="kit">Комплект</label>
+            <select id="kit">
+              <option value="basic">Базовый минимум</option>
+              <option value="complex">Комплексный ремонт</option>
+              <option value="custom">Индивидуальный проект</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label class="check"><input type="checkbox" id="materials"> с материалами</label>
+          </div>
+
+          <div class="field">
+            <span class="field-title">Дополнительные работы:</span>
+            <label class="check"><input type="checkbox" class="extra" value="floor"> Тёплый пол</label>
+            <label class="check"><input type="checkbox" class="extra" value="layout"> Перепланировка</label>
+            <label class="check"><input type="checkbox" class="extra" value="light"> Умный свет</label>
+          </div>
+
+          <button type="button" id="calc">Рассчитать</button>
+
+          <!-- Результат по частям: заполняется скриптом -->
+          <div id="result" aria-live="polite">
+            <p id="resMessage"></p>
+            <p id="resWork"></p>
+            <p id="resMaterials"></p>
+            <p id="resExtras"></p>
+            <p id="resCoefficient"></p>
+            <p id="resTotal"></p>
+            <p id="resMin"></p>
+            <p id="resNote"></p>
+          </div>
+
+          <!-- Кнопка копирования и короткая подсказка рядом с ней -->
+          <button type="button" id="copy">Скопировать расчёт</button>
+          <p id="copyStatus"></p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Блок 4: подвал -->
+  <footer>
+    <div class="wrap">
+      <p class="brand">ОБЖИТО</p>
+      <p>Калькулятор стоимости ремонта. Студия вымышленная, расчёт ориентировочный.</p>
+    </div>
+  </footer>
+
+  <!-- Здесь лежат цены и функция calculate -->
+  <script src="script.js"></script>
+  <script>
+    const areaInput = document.getElementById("area");
+
+    // Последний удачный расчёт; null, если расчёта нет или показана ошибка
+    let lastResult = null;
+    // Данные последнего расчёта (тип, площадь, комплект, материалы, доп. работы) для копируемого текста
+    let lastInfo = null;
+
+    // Очищает все строки результата, подсказку у кнопки и забывает прошлый расчёт
+    function clearResult() {
+      const ids = ["resMessage", "resWork", "resMaterials", "resExtras", "resCoefficient", "resTotal", "resMin", "resNote", "copyStatus"];
+      for (const id of ids) {
+        document.getElementById(id).textContent = "";
+      }
+      lastResult = null;
+      lastInfo = null;
+    }
+
+    // Запасной способ копирования: временное поле, выделение и команда copy
+    function fallbackCopy(text) {
+      const box = document.createElement("textarea");
+      box.value = text;
+      box.style.position = "fixed";
+      box.style.left = "-1000px";
+      document.body.appendChild(box);
+      box.select();
+      let done = false;
+      try {
+        done = document.execCommand("copy");
+      } catch (e) {
+        done = false;
+      }
+      document.body.removeChild(box);
+      return done;
+    }
+
+    // Сначала обычный способ; если браузер не даёт (например, страница открыта как файл), запасной
+    async function copyText(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (e) {
+        return fallbackCopy(text);
+      }
+    }
+
+    document.getElementById("calc").addEventListener("click", function () {
+      // Сначала убираем старый результат и старое сообщение
+      clearResult();
+
+      // Проверка ввода (функция parseArea лежит в script.js)
+      const check = parseArea(areaInput.value);
+      if (!check.ok) {
+        // Вместо расчёта показываем только сообщение, через textContent
+        document.getElementById("resMessage").textContent = check.message;
+        return;
+      }
+      const area = check.area;
+
+      // Собираем ключи отмеченных дополнительных работ
+      const extras = [];
+      for (const box of document.querySelectorAll(".extra")) {
+        if (box.checked) {
+          extras.push(box.value);
+        }
+      }
+
+      const type = document.getElementById("type").value;
+      const kit = document.getElementById("kit").value;
+      const withMaterials = document.getElementById("materials").checked;
+
+      const result = calculate({
+        type: type,
+        area: area,
+        kit: kit,
+        withMaterials: withMaterials,
+        extras: extras,
+      });
+
+      // Выводим только через textContent: введённое не превращается в разметку страницы
+      document.getElementById("resWork").textContent = "Работа: " + formatRub(result.work);
+      document.getElementById("resMaterials").textContent = "Материалы: " + formatRub(result.materials);
+      document.getElementById("resExtras").textContent = extrasLine(result.extras, extras);
+      document.getElementById("resCoefficient").textContent = coefficientLine(result.coefficient, type);
+      document.getElementById("resTotal").textContent = "Итого: " + formatRub(result.total);
+      if (result.minApplied) {
+        document.getElementById("resMin").textContent = minOrderLine();
+      }
+      document.getElementById("resNote").textContent = "Точная сумма определяется после замера";
+
+      // Запоминаем удачный расчёт и его данные, чтобы кнопка могла их скопировать
+      lastResult = result;
+      lastInfo = {
+        type: type,
+        area: areaInput.value.trim(),
+        kit: kit,
+        withMaterials: withMaterials,
+        extras: extras,
+      };
+    });
+
+    // Enter в поле площади работает как кнопка «Рассчитать»
+    areaInput.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        document.getElementById("calc").click();
+      }
+    });
+
+    document.getElementById("copy").addEventListener("click", async function () {
+      const status = document.getElementById("copyStatus");
+
+      // Нет расчёта или показана ошибка: ничего не копируем
+      if (lastResult === null) {
+        status.textContent = "Сначала рассчитайте стоимость";
+        return;
+      }
+
+      const ok = await copyText(buildCopyText(lastResult, lastInfo));
+      status.textContent = ok
+        ? "Скопировано"
+        : "Не удалось скопировать. Выделите текст результата и скопируйте вручную.";
+    });
+
+    // Любое изменение полей калькулятора стирает старый результат:
+    // события input и change всплывают от полей к блоку .calc-box (у кнопок этих событий нет)
+    const calcBox = document.querySelector(".calc-box");
+    calcBox.addEventListener("input", clearResult);
+    calcBox.addEventListener("change", clearResult);
+  </script>
+</body>
+</html>
